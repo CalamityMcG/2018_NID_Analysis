@@ -1,0 +1,209 @@
+---
+title: "Hot Dams: an Analysis of the 2018 National Inventory of Dams"
+author: "CalamityMcG"
+date: "10/10/2019"
+output: html_document
+---
+
+# Hot Dams
+
+While funny to say, the maintenance and age of the facilities, systems, and individual units of infrastructure responsible for maintaining the fullness of reservoirs and height of navigable waterways across the United States are no joke. A fascinating area to study in the field of critical national infrastructure, this R Markdown is a discusion of how to use the data made available by the US government to take a critical look at our nation's dam infrastructure.
+
+# The Best Place to Start: Data
+
+So with data analytics, sometimes the starting point is not an original question or a sudden eureka of inquiry, but a dataset to which we can pose questions and fine-tune what the data can tell us. 
+
+There's not much point in asking after an idea or seeking after a thread of information if there is no data to either peruse or be found on the topic.
+
+For this analysis, we will be using the 2018 National Inventory of Dams, made available on the Army Corps of Engineers' website (https://nid.sec.usace.army.mil). This data was first discovered through the federal government's Open Data Interface (Data.gov). We'll be using this data to not only discover what we can glean from it, but as a basis for communicating stories about data through charts and graphs.
+
+## Getting Data into R
+
+To really dig into our data, we'll be using the R scripting language through RStudio. Therefore, the real first step in our process of inquiry is uploading an R library called Tidyverse to (in layperson's terms) clean, filter, sort, arrange, and display the Corps' information. So for us to perform these activities, we need to import the toolbox that enables such functionalities.
+
+```{r cars}
+# importing tidyverse, which enables data cleaning & manipulation
+library(tidyverse)
+
+# uploading data into RStudio to be analyzed
+NID_Data <- read_csv('NID2018_U.csv')
+
+```
+
+## Cleaning Data into a Usable Format
+
+So it looks like our column 'STATEID' is labled as a logical; that is to say, a TRUE/FALSE binary statement. This doesn't make much sense, as we would expect it to be formated as either characters or a string describing each state. Let's take a quick look at the data and see what's going on. 
+
+```{r}
+# taking a look at the data
+glimpse(NID_Data)
+```
+
+It looks like the 'STATEID' column of data happens to be empty (hence the 'NA'). So in this case, we may be able to simply skip the column rather use it for analysis. Otherwise, we would need to recategorize the data into the correct format.
+
+# Analyzing Data
+
+What we really need is a starting point for analyzing and sifting through the data we have. Given the large number of columns, we'll need to start looking at columns we can use to get a better idea of what data we have to start asking question. In the meantime, it will be important to watch out for null observations that register as 'NA' rather than empty.
+
+The 'STATE' column is complete, and looks to contain the information that designates each peice of infrastructure within a specific State's political boundaries. It would be a good place for us to start filtering and analyzing the data.
+
+## Filter What's There to See Information
+
+So it appears from the 'glimpse{}' we've got a lot of options for how to filter our data. Let's start with each individual State and count how many structures are in each state.
+
+```{r}
+# let's count how many peices of infrastructure are in each 
+NID_State <- NID_Data %>% group_by(STATE) %>% tally()
+
+glimpse(NID_State)
+```
+ 
+ The good news is we have workable data. Let's see what, if any, pattern we can uncover by transforming this result into some kind of chart.
+
+## Sometimes Results Need to Be Renamed
+
+But first, we have to format the data results in our original 'NID_State' output to be readable by ggplot. In this instance, we've used tally to generate a tibble of results. Unfortunately, if we use this raw information, the 'n' value is hard to translate to the y-axis of any discernible plot. Therefore, we'll need to rename these result categories so they can be read by ggplot to create a chart. 
+
+```{r}
+
+# note the formatting here has the new name followed by the original results from the 'NID_State' output; we can use column names to correctly format a graph
+
+State_Data <- rename(NID_State, Dams = n, State = STATE)
+```
+
+## What are We Looking at?
+
+Now that we have 'State_Data' as a clean and readable starting point, let's plot this information using ggplot, part of the Tidyverse package.
+
+```{r}
+
+ggplot(data = State_Data) +
+  aes(x = State, y = Dams) +
+  geom_col() +
+  labs(
+    title = 'Number of Dams Registered in 2018 National Inventory of Dams',
+    x = "State",
+    y = "Number of Structures",
+    caption = "Source: US Army Corps of Engineers; https://nid.sec.usace.army.mil/"
+  )
+
+```
+
+Unfortunately, this is a hot mess. Let's see about reworking out ggplot aesthetics to better read what's going on in this graphic. Thankfully, there are a number of ways we can redesign how the lables and legend look for the chart we created. If you are searching for more information on how to do this in R, a great place to look is in the 'R Graphics Cookbook' by O'Reilly.
+
+```{r}
+
+# reworked aesthetics of plot to make it visually coherent
+
+ggplot(data = State_Data) +
+  aes(x = reorder(State, Dams), y = Dams) +
+  geom_col(position = "dodge") +
+  labs(
+    title = 'Number of Dams Registered in 2018 National Inventory of Dams',
+    x = "State",
+    y = "Number of Structures",
+    caption = "Source: US Army Corps of Engineers; https://nid.sec.usace.army.mil/"
+  )
+
+```
+
+While we've got our data looking more cohesive, it may not be helpful taking this route of investigating our dam information.
+
+This is for a couple of reasons: 
+1) states' size will skew how many each can fit (TX v. DE)
+2) states proximity to major waterways (LA v. NV)
+3) does a state's identity actually tell a story about dams?
+
+## That's a Hot Mess of Data; Let's Filter It a Bit
+
+Maybe we can instead look at infrastructure based on its age rather than its location. This will also give us a chance to see how the amount of infrastructure in the United States has grown over time, and possibly how it has been managed
+
+Now that we've got an idea of what we're looking for, it's important to note we have a bias towards a story; we want to know what this information is telling us. Let's focus on all the information that centers on dams that are old, or maybe seen as damaged in some way.
+
+```{r}
+# let's first also about counting dams based on year built
+
+NID_YearBuilt <- NID_Data %>% group_by(YEAR_COMPLETED) %>% tally()
+
+# I wonder what this looks like
+glimpse(NID_YearBuilt)
+```
+
+Wow; there are over 15 thousand error values. Let's figure out what's going on here and why there are so many 'NULL' values given. Note, however, this dataset includes over 90 thousand dams across the United States; so this tibble includes only a small fraction of total occurrences from the dataframe.
+
+# Transforming a Deluge of Data into a Digestible Plot
+
+What is most helpful about plotting data early on is to discover if there are any trends. Off the bat, we have our data displayed in alphabetical order. However, once transformed into a graph, we may see clustering that visually differs from this default arrangement. 
+
+Since this is showing the number of dams constructed each year, we want to see how what upticks there were over the passage of time; are there years that had a disproportionate number of dams completed compared to others?
+
+```{r}
+
+ggplot(data = NID_YearBuilt) +
+  aes(x = YEAR_COMPLETED, y = n) +
+  geom_line() +
+  labs(
+    title = 'Number of Dams Built per Year in 2018 National Inventory of Dams',
+    x = "Year Completed",
+    y = "Number of Structures",
+    caption = "Source: US Army Corps of Engineers; https://nid.sec.usace.army.mil/"
+  )
+
+```
+
+We've got to figure out how to skip the null values in order to prevent the error code, as well as see how we can zoom-in to the data to discover a visual trend. However, what story is this data really showing us?
+
+So row 248 is the troublemaker in the 'NID_YearBuilt' dataset; let's see if we can skip that row and get a more cohesive-looking plot.
+
+```{r}
+
+NID_YB_Cleaned <- na.omit(NID_YearBuilt)
+
+ggplot(data = NID_YB_Cleaned) +
+  aes(x = YEAR_COMPLETED, y = n) +
+  geom_line() +
+  labs(
+    title = 'Number of Dams Built per Year in 2018 National Inventory of Dams',
+    x = "Year Completed",
+    y = "Number of Structures",
+    caption = "Source: US Army Corps of Engineers; https://nid.sec.usace.army.mil/"
+  )
+
+```
+
+Looks like there was a spike in the number of dam infrastructure projects completed at the turn of the 20th century; let's see if we can focus only on the projects that occurred between 1900 and present
+
+
+NID_YB_Cleaned2 <- read.table(NIB_YB_Cleaned
+
+ggplot(data = NID_YB_Cleaned) +
+  aes(x = YEAR_COMPLETED, y = n) +
+  geom_line() +
+  labs(
+    title = 'Number of Dams Built per Year in 2018 National Inventory of Dams',
+    x = "Year Completed",
+    y = "Number of Structures",
+    caption = "Source: US Army Corps of Engineers; https://nid.sec.usace.army.mil/"
+  )
+
+```
+
+## Hot Dams That's STILL a Hot Mess; Let's Arrange It
+
+Now that we've got an idea of what we've got to look at, it's important to see what the discrepancy is between well-maintained and not-so-well maintained infrastructure; there may be more offenders in terms of aging or poorly maintained dams from some years versus others.
+
+Firstly, we should sort these results based on highest to lowest number of dams in each state. This may enable us to hone-in on where issues are cropping up in dam maintenance or sunsetting.
+
+```{r}
+
+# use ggplot to start sorting how to arrange columns by height
+```
+
+## What About Each Dam's Location?
+
+We can filter the data based on GIS data available, namely GPS coordinates as longitudinal and latitudinal data. So we'll need to filter and sort the data based on these categories.
+
+```{r}
+
+NID_Locale <- NID_Data
+
